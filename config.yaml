@@ -1,0 +1,39 @@
+data:
+  input_file: "/Users/kylejonespatricia/time_series/data/morocco_daily_total_load.csv"
+  date_col: "date"
+  value_col: "value"
+  freq: "D"
+
+methods:
+  stl:
+    enabled: true
+    season: 12
+    z_threshold: 3.0
+    output_plot: "eia_anomaly_stl.png"
+  autoencoder:
+    enabled: true
+    window: 24
+    batch_size: 32
+    epochs: 40
+    learning_rate: 0.001
+    z_threshold: 3.0
+    output_plot: "eia_anomaly_autoencoder.png"
+    error_plot: "eia_anomaly_autoencoder_error.png"
+  stumpy:
+    enabled: false
+    window: 50
+    percentile: 98
+  pyod:
+    enabled: false
+    method: "IForest"
+    contamination: 0.1
+
+plotting:
+  dpi: 150
+  stl_color: "#444444"
+  anomaly_color: "#c70039"
+  history_color: "#2f2f2f"
+
+output:
+  output_dir: "outputs"
+
