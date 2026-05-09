@@ -7,6 +7,12 @@ import sys
 import time
 from pathlib import Path
 
+import logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 # Add src to path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -196,8 +202,8 @@ def run_stl(series: pd.Series, config: Config) -> tuple[pd.Series, int]:
     save_plot(fig, config.stl.output_plot, dpi=300)
     plt.close(fig)
     
-    print(f" STL anomalies saved -> {config.stl.output_plot}")
-    print(f"  Anomalies detected: {int(anomalies.sum())}")
+    logger.info(f" STL anomalies saved -> {config.stl.output_plot}")
+    logger.info(f"  Anomalies detected: {int(anomalies.sum())}")
     return resid, int(anomalies.sum())
 
 
@@ -335,9 +341,9 @@ def train_autoencoder(
     save_plot(fig, config.autoencoder.error_plot, dpi=300)
     plt.close(fig)
     
-    print(f" Autoencoder anomalies saved -> {config.autoencoder.output_plot}")
-    print(f" Error diagnostics saved -> {config.autoencoder.error_plot}")
-    print(f"  AE anomalies detected: {int(anomalies.sum())}")
+    logger.info(f" Autoencoder anomalies saved -> {config.autoencoder.output_plot}")
+    logger.error(f" Error diagnostics saved -> {config.autoencoder.error_plot}")
+    logger.info(f"  AE anomalies detected: {int(anomalies.sum())}")
     
     return error_series, z_scores, anomalies
 
@@ -347,7 +353,7 @@ def run_stumpy(series: pd.Series, config: Config) -> None:
     if not config.stumpy.enabled:
         return
     if stumpy is None:
-        print("Warning: stumpy not available. Skipping STUMPY anomaly detection.")
+        logger.warning("Warning: stumpy not available. Skipping STUMPY anomaly detection.")
         return
     
     matrix_profile = stumpy.stump(series.values, m=config.stumpy.window)[:, 0]
@@ -385,7 +391,7 @@ def run_stumpy(series: pd.Series, config: Config) -> None:
     path = config.output_dir / "stumpy_matrix_profile.png"
     save_plot(fig, path, dpi=300)
     plt.close(fig)
-    print(f" STUMPY matrix profile saved -> {path}")
+    logger.info(f" STUMPY matrix profile saved -> {path}")
 
 
 def run_pyod(series: pd.Series, config: Config) -> None:
@@ -393,7 +399,7 @@ def run_pyod(series: pd.Series, config: Config) -> None:
     if not config.pyod.enabled:
         return
     if IForest is None or LOF is None or OCSVM is None:
-        print("Warning: PyOD not available. Skipping PyOD anomaly detection.")
+        logger.warning("Warning: PyOD not available. Skipping PyOD anomaly detection.")
         return
     
     method_map = {
@@ -424,7 +430,7 @@ def run_pyod(series: pd.Series, config: Config) -> None:
     path = config.output_dir / f"pyod_{config.pyod.method.lower()}_anomalies.png"
     save_plot(fig, path, dpi=300)
     plt.close(fig)
-    print(f" PyOD anomalies saved -> {path}")
+    logger.info(f" PyOD anomalies saved -> {path}")
 
 
 def main() -> None:
@@ -446,7 +452,7 @@ def main() -> None:
         # Load series
         series = load_series(config)
 
-        print(
+        logger.info(
             f"Loaded series with {len(series)} points from {series.index.min().date()} to {series.index.max().date()}"
         )
 
@@ -454,11 +460,11 @@ def main() -> None:
         stl_count = 0
         ae_count = 0
         if config.stl.enabled:
-            print("\nRunning STL anomaly detection...")
+            logger.info("\nRunning STL anomaly detection...")
             residuals, stl_count = run_stl(series, config)
 
         if config.autoencoder.enabled:
-            print("\nTraining autoencoder for anomaly detection...")
+            logger.info("\nTraining autoencoder for anomaly detection...")
             residuals_for_ae = (
                 residuals if residuals is not None else series - series.mean()
             )
@@ -466,11 +472,11 @@ def main() -> None:
             ae_count = int(ae_anomalies.sum())
 
         if config.stumpy.enabled:
-            print("\nRunning STUMPY matrix profile anomaly detection...")
+            logger.info("\nRunning STUMPY matrix profile anomaly detection...")
             run_stumpy(series, config)
 
         if config.pyod.enabled:
-            print("\nRunning PyOD anomaly detection...")
+            logger.info("\nRunning PyOD anomaly detection...")
             run_pyod(series, config)
 
         metrics_log = {
@@ -478,7 +484,7 @@ def main() -> None:
             "autoencoder_anomalies": float(ae_count),
         }
 
-        print("\n Anomaly detection pipeline complete")
+        logger.info("\n Anomaly detection pipeline complete")
     except Exception as e:
         status = "failed"
         error_msg = str(e)
@@ -497,7 +503,7 @@ def main() -> None:
             details={"data_path": str(config.data_path)},
             error=error_msg,
         )
-        print(f"Run log saved to: {log_path}")
+        logger.info(f"Run log saved to: {log_path}")
 
 
 if __name__ == "__main__":
