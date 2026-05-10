@@ -168,7 +168,7 @@ def load_series(config: Config) -> pd.Series:
     return series.astype(float)
 
 
-def run_stl(series: pd.Series, config: Config) -> tuple[pd.Series, int]:
+def run_stl(series: pd.Series, config: Config, plot: bool = False) -> tuple[pd.Series, int]:
     """Run STL decomposition anomaly detection."""
     stl = STL(series, period=config.stl.season, robust=True).fit()
     resid = pd.Series(stl.resid, index=series.index)
@@ -177,30 +177,31 @@ def run_stl(series: pd.Series, config: Config) -> tuple[pd.Series, int]:
     z_scores = (resid - mu) / sigma
     anomalies = z_scores.abs() > config.stl.z_threshold
     
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(
-        series.index,
-        series.values,
-        color=config.colors["stl"],
-        alpha=0.8,
-        label="Series",
-    )
-    ax.scatter(
-        series.index[anomalies],
-        series[anomalies],
-        color=config.colors["anomaly"],
-        s=24,
-        label="STL anomaly",
-    )
-    ax.set_title("STL residual z-score anomalies")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Value")
-    ax.legend(loc="best")
-    ax.grid(True, alpha=0.3)
+    if plot:
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(
+            series.index,
+            series.values,
+            color=config.colors["stl"],
+            alpha=0.8,
+            label="Series",
+        )
+        ax.scatter(
+            series.index[anomalies],
+            series[anomalies],
+            color=config.colors["anomaly"],
+            s=24,
+            label="STL anomaly",
+        )
+        ax.set_title("STL residual z-score anomalies")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Value")
+        ax.legend(loc="best")
+        ax.grid(True, alpha=0.3)
     
-    fig.tight_layout()
-    save_plot(fig, config.stl.output_plot, dpi=300)
-    plt.close(fig)
+        fig.tight_layout()
+        save_plot(fig, config.stl.output_plot, dpi=300)
+        plt.close(fig)
     
     logger.info(f" STL anomalies saved -> {config.stl.output_plot}")
     logger.info(f"  Anomalies detected: {int(anomalies.sum())}")
@@ -290,56 +291,57 @@ def train_autoencoder(
     anomalies = z_scores > config.autoencoder.z_threshold
     
     # Plot residual anomalies
-    fig, ax = plt.subplots(figsize=(10, 5))
-    ax.plot(
-        residuals.index,
-        residuals.values,
-        label="STL residual",
-        color=config.colors["series"],
-        alpha=0.8,
-    )
-    ax.scatter(
-        error_series.index[anomalies],
-        residuals.reindex(error_series.index)[anomalies],
-        color=config.colors["anomaly"],
-        s=24,
-        label="AE anomaly",
-    )
-    ax.set_title("Autoencoder residual anomalies")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Residual Value")
-    ax.legend(loc="best")
-    ax.grid(True, alpha=0.3)
+    if plot:
+        fig, ax = plt.subplots(figsize=(10, 5))
+        ax.plot(
+            residuals.index,
+            residuals.values,
+            label="STL residual",
+            color=config.colors["series"],
+            alpha=0.8,
+        )
+        ax.scatter(
+            error_series.index[anomalies],
+            residuals.reindex(error_series.index)[anomalies],
+            color=config.colors["anomaly"],
+            s=24,
+            label="AE anomaly",
+        )
+        ax.set_title("Autoencoder residual anomalies")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Residual Value")
+        ax.legend(loc="best")
+        ax.grid(True, alpha=0.3)
     
-    fig.tight_layout()
-    save_plot(fig, config.autoencoder.output_plot, dpi=300)
-    plt.close(fig)
+        fig.tight_layout()
+        save_plot(fig, config.autoencoder.output_plot, dpi=300)
+        plt.close(fig)
     
     # Plot reconstruction error
-    fig, ax = plt.subplots(figsize=(10, 3))
-    ax.plot(
-        error_series.index,
-        error_series.values,
-        color="tab:blue",
-        label="Reconstruction error",
-        alpha=0.8,
-    )
-    ax.axhline(
-        err_mu + config.autoencoder.z_threshold * err_sigma,
-        color=config.colors["anomaly"],
-        linestyle="--",
-        label="Threshold",
-        lw=2,
-    )
-    ax.set_title("Autoencoder reconstruction error")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Error")
-    ax.legend(loc="best")
-    ax.grid(True, alpha=0.3)
+        fig, ax = plt.subplots(figsize=(10, 3))
+        ax.plot(
+            error_series.index,
+            error_series.values,
+            color="tab:blue",
+            label="Reconstruction error",
+            alpha=0.8,
+        )
+        ax.axhline(
+            err_mu + config.autoencoder.z_threshold * err_sigma,
+            color=config.colors["anomaly"],
+            linestyle="--",
+            label="Threshold",
+            lw=2,
+        )
+        ax.set_title("Autoencoder reconstruction error")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Error")
+        ax.legend(loc="best")
+        ax.grid(True, alpha=0.3)
     
-    fig.tight_layout()
-    save_plot(fig, config.autoencoder.error_plot, dpi=300)
-    plt.close(fig)
+        fig.tight_layout()
+        save_plot(fig, config.autoencoder.error_plot, dpi=300)
+        plt.close(fig)
     
     logger.info(f" Autoencoder anomalies saved -> {config.autoencoder.output_plot}")
     logger.error(f" Error diagnostics saved -> {config.autoencoder.error_plot}")
@@ -348,7 +350,7 @@ def train_autoencoder(
     return error_series, z_scores, anomalies
 
 
-def run_stumpy(series: pd.Series, config: Config) -> None:
+def run_stumpy(series: pd.Series, config: Config, plot: bool = False) -> None:
     """Run STUMPY matrix profile anomaly detection."""
     if not config.stumpy.enabled:
         return
@@ -360,41 +362,42 @@ def run_stumpy(series: pd.Series, config: Config) -> None:
     threshold = np.percentile(matrix_profile, config.stumpy.percentile)
     anomalies = matrix_profile > threshold
     
-    fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
-    axes[0].plot(
-        series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8
-    )
-    axes[0].scatter(
-        series.index[anomalies],
-        series.values[anomalies],
-        color=config.colors["anomaly"],
-        s=20,
-        label="Matrix profile anomaly",
-    )
-    axes[0].legend(loc="best")
-    axes[0].set_title("STUMPY matrix profile anomalies")
-    axes[0].set_ylabel("Value")
-    axes[0].grid(True, alpha=0.3)
+    if plot:
+        fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
+        axes[0].plot(
+            series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8
+        )
+        axes[0].scatter(
+            series.index[anomalies],
+            series.values[anomalies],
+            color=config.colors["anomaly"],
+            s=20,
+            label="Matrix profile anomaly",
+        )
+        axes[0].legend(loc="best")
+        axes[0].set_title("STUMPY matrix profile anomalies")
+        axes[0].set_ylabel("Value")
+        axes[0].grid(True, alpha=0.3)
     
-    axes[1].plot(
-        series.index[: len(matrix_profile)], matrix_profile, label="Matrix profile", color="tab:blue", alpha=0.8
-    )
-    axes[1].axhline(
-        threshold, color=config.colors["anomaly"], linestyle="--", label="Threshold", lw=2
-    )
-    axes[1].legend(loc="best")
-    axes[1].set_xlabel("Date")
-    axes[1].set_ylabel("Matrix Profile")
-    axes[1].grid(True, alpha=0.3)
+        axes[1].plot(
+            series.index[: len(matrix_profile)], matrix_profile, label="Matrix profile", color="tab:blue", alpha=0.8
+        )
+        axes[1].axhline(
+            threshold, color=config.colors["anomaly"], linestyle="--", label="Threshold", lw=2
+        )
+        axes[1].legend(loc="best")
+        axes[1].set_xlabel("Date")
+        axes[1].set_ylabel("Matrix Profile")
+        axes[1].grid(True, alpha=0.3)
     
-    fig.tight_layout()
-    path = config.output_dir / "stumpy_matrix_profile.png"
-    save_plot(fig, path, dpi=300)
-    plt.close(fig)
+        fig.tight_layout()
+        path = config.output_dir / "stumpy_matrix_profile.png"
+        save_plot(fig, path, dpi=300)
+        plt.close(fig)
     logger.info(f" STUMPY matrix profile saved -> {path}")
 
 
-def run_pyod(series: pd.Series, config: Config) -> None:
+def run_pyod(series: pd.Series, config: Config, plot: bool = False) -> None:
     """Run PyOD anomaly detection."""
     if not config.pyod.enabled:
         return
@@ -411,25 +414,26 @@ def run_pyod(series: pd.Series, config: Config) -> None:
     model.fit(series.values.reshape(-1, 1))
     preds = model.predict(series.values.reshape(-1, 1)) == 1
     
-    fig, ax = plt.subplots(figsize=(10, 4))
-    ax.plot(series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8)
-    ax.scatter(
-        series.index[preds],
-        series.values[preds],
-        label=f"{config.pyod.method} anomaly",
-        color=config.colors["anomaly"],
-        s=24,
-    )
-    ax.legend(loc="best")
-    ax.set_title(f"PyOD ({config.pyod.method}) anomalies")
-    ax.set_xlabel("Date")
-    ax.set_ylabel("Value")
-    ax.grid(True, alpha=0.3)
+    if plot:
+        fig, ax = plt.subplots(figsize=(10, 4))
+        ax.plot(series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8)
+        ax.scatter(
+            series.index[preds],
+            series.values[preds],
+            label=f"{config.pyod.method} anomaly",
+            color=config.colors["anomaly"],
+            s=24,
+        )
+        ax.legend(loc="best")
+        ax.set_title(f"PyOD ({config.pyod.method}) anomalies")
+        ax.set_xlabel("Date")
+        ax.set_ylabel("Value")
+        ax.grid(True, alpha=0.3)
     
-    fig.tight_layout()
-    path = config.output_dir / f"pyod_{config.pyod.method.lower()}_anomalies.png"
-    save_plot(fig, path, dpi=300)
-    plt.close(fig)
+        fig.tight_layout()
+        path = config.output_dir / f"pyod_{config.pyod.method.lower()}_anomalies.png"
+        save_plot(fig, path, dpi=300)
+        plt.close(fig)
     logger.info(f" PyOD anomalies saved -> {path}")
 
 
