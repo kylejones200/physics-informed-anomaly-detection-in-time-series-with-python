@@ -14,13 +14,13 @@ The challenge addressed here is to detect anomalies in the components of a wind 
 
 We are interested in detecting three types of anomalies:
 
-1.  **Rotor speed:** when the rotor is not at the expected speed
+1.  Rotor speed: when the rotor is not at the expected speed
 
-2.  **Produced voltage:** when the generator does not produce the expected voltage
+2.  Produced voltage: when the generator does not produce the expected voltage
 
-3.  **Gearbox vibration:** when the gearbox vibration deviates from expected levels
+3.  Gearbox vibration: when the gearbox vibration deviates from expected levels
 
-These anomalies depend on multiple variables while the turbine operates. We use an unsupervised ML model called an **Autoencoder** to correlate features, learn the latent representation of the dataset, and predict the input tensor. By training the model on data from a normal turbine (without anomalies), the model learns 'normal behavior'. When input with data from a malfunctioning turbine, the model produces a high error, thus detecting an anomaly.
+These anomalies depend on multiple variables while the turbine operates. We use an unsupervised ML model called an Autoencoder to correlate features, learn the latent representation of the dataset, and predict the input tensor. By training the model on data from a normal turbine (without anomalies), the model learns 'normal behavior'. When input with data from a malfunctioning turbine, the model produces a high error, thus detecting an anomaly.
 
 Since sensor readings are time-series data with high correlation between neighboring samples, we reformat the data as a multidimensional tensor. Specifically, we create a temporal encoding of eight features in $10 \times 10$ steps to create a tensor with shape $8 \times 10 \times 10$.
 
@@ -28,35 +28,35 @@ Since sensor readings are time-series data with high correlation between neighbo
 
 The dataset includes the following features:
 
-- **timestamp:** Timestamp of the row (sensor readings every 90 seconds)
+- timestamp: Timestamp of the row (sensor readings every 90 seconds)
 
-- **sensorId:** ID of the edge device collecting the data
+- sensorId: ID of the edge device collecting the data
 
-- **long, lat:** Longitude and latitude of the turbine
+- long, lat: Longitude and latitude of the turbine
 
-- **temp:** External temperature
+- temp: External temperature
 
-- **pressure:** Air pressure
+- pressure: Air pressure
 
-- **humidity:** Air humidity
+- humidity: Air humidity
 
-- **altitude:** Altitude of the turbine
+- altitude: Altitude of the turbine
 
-- **voltage:** Voltage produced by the generator (mV)
+- voltage: Voltage produced by the generator (mV)
 
-- **power:** Power produced by the generator (mV)
+- power: Power produced by the generator (mV)
 
-- **rpm:** Wind speed in Rotations Per Minute
+- rpm: Wind speed in Rotations Per Minute
 
-- **status:** Status of turbine \['active', 'inactive'\]
+- status: Status of turbine \['active', 'inactive'\]
 
-- **gearbox_vibration:** Vibration measurement inside the gearbox
+- gearbox_vibration: Vibration measurement inside the gearbox
 
-- **generator_vibration:** Vibration measurement inside the generator
+- generator_vibration: Vibration measurement inside the generator
 
-- **tower_vibration:** Vibration measurement on the tower gearbox
+- tower_vibration: Vibration measurement on the tower gearbox
 
-- **anomaly:** Expert-provided label indicating if the row is anomalous
+- anomaly: Expert-provided label indicating if the row is anomalous
 
 ## Wavelet Denoising
 
