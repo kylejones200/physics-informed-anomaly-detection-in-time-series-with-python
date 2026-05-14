@@ -343,7 +343,7 @@ def train_autoencoder(
         plt.close(fig)
     
     logger.info(f" Autoencoder anomalies saved -> {config.autoencoder.output_plot}")
-    logger.error(f" Error diagnostics saved -> {config.autoencoder.error_plot}")
+    logger.error(f" Error diagnostics saved -> {config.autoencoder.error_plot}", exc_info=True)
     logger.info(f"  AE anomalies detected: {int(anomalies.sum())}")
     
     return error_series, z_scores, anomalies
