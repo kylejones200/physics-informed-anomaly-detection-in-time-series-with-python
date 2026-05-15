@@ -3,13 +3,12 @@
 
 from __future__ import annotations
 
+import logging
 import time
 from pathlib import Path
 
-import logging
 logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(levelname)s - %(message)s'
+    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
 # Add src to path
@@ -24,12 +23,11 @@ import torch.nn as nn
 
 # Import consolidated utilities (signalplot already applied in src/__init__.py)
 from src import (
-    load_config,
     ensure_output_dir,
+    load_config,
     save_plot,
 )
 from src.run_logger import append_run_log, utc_now_iso
-
 from statsmodels.tsa.seasonal import STL
 
 try:
@@ -47,6 +45,7 @@ except ImportError:  # pragma: no cover - optional dependencies
 @dataclass
 class STLConfig:
     """STL configuration."""
+
     enabled: bool
     season: int
     z_threshold: float
@@ -56,6 +55,7 @@ class STLConfig:
 @dataclass
 class AutoencoderConfig:
     """Autoencoder configuration."""
+
     enabled: bool
     window: int
     batch_size: int
@@ -69,6 +69,7 @@ class AutoencoderConfig:
 @dataclass
 class StumpyConfig:
     """STUMPY configuration."""
+
     enabled: bool
     window: int
     percentile: float
@@ -77,6 +78,7 @@ class StumpyConfig:
 @dataclass
 class PyODConfig:
     """PyOD configuration."""
+
     enabled: bool
     method: str
     contamination: float
@@ -85,6 +87,7 @@ class PyODConfig:
 @dataclass
 class Config:
     """Configuration dataclass for this template."""
+
     data_path: Path
     date_col: str
     value_col: str
@@ -100,19 +103,21 @@ class Config:
 def parse_config(config_dict: dict, script_dir: Path) -> Config:
     """Parse config dictionary into Config dataclass."""
     repo_root = script_dir.parent
-    output_dir = ensure_output_dir(Path(script_dir) / config_dict["output"]["output_dir"])
-    
+    output_dir = ensure_output_dir(
+        Path(script_dir) / config_dict["output"]["output_dir"]
+    )
+
     stl_cfg = config_dict["methods"]["stl"]
     ae_cfg = config_dict["methods"]["autoencoder"]
     stumpy_cfg = config_dict["methods"]["stumpy"]
     pyod_cfg = config_dict["methods"]["pyod"]
-    
+
     colors = {
         "series": config_dict["plotting"].get("history_color", "#2f2f2f"),
         "stl": config_dict["plotting"].get("stl_color", "#444444"),
         "anomaly": config_dict["plotting"].get("anomaly_color", "#c70039"),
     }
-    
+
     return Config(
         data_path=repo_root / "data" / config_dict["data"]["input_file"],
         date_col=config_dict["data"]["date_col"],
@@ -131,8 +136,10 @@ def parse_config(config_dict: dict, script_dir: Path) -> Config:
             epochs=int(ae_cfg.get("epochs", 200)),
             learning_rate=float(ae_cfg.get("learning_rate", 1e-3)),
             z_threshold=float(ae_cfg.get("z_threshold", 3.0)),
-            output_plot=output_dir / ae_cfg.get("output_plot", "eia_anomaly_autoencoder.png"),
-            error_plot=output_dir / ae_cfg.get("error_plot", "eia_anomaly_autoencoder_error.png"),
+            output_plot=output_dir
+            / ae_cfg.get("output_plot", "eia_anomaly_autoencoder.png"),
+            error_plot=output_dir
+            / ae_cfg.get("error_plot", "eia_anomaly_autoencoder_error.png"),
         ),
         stumpy=StumpyConfig(
             enabled=bool(stumpy_cfg.get("enabled", False)),
@@ -152,19 +159,22 @@ def parse_config(config_dict: dict, script_dir: Path) -> Config:
 def load_series(config: Config) -> pd.Series:
     """Load time series using consolidated loader."""
     from src import load_time_series
+
     series = load_time_series(
         str(config.data_path),
         date_column=config.date_col,
-        value_column=config.value_col
+        value_column=config.value_col,
     )
-    
+
     if config.freq:
         series = series.asfreq(config.freq)
-    
+
     return series.astype(float)
 
 
-def run_stl(series: pd.Series, config: Config, plot: bool = False) -> tuple[pd.Series, int]:
+def run_stl(
+    series: pd.Series, config: Config, plot: bool = False
+) -> tuple[pd.Series, int]:
     """Run STL decomposition anomaly detection."""
     stl = STL(series, period=config.stl.season, robust=True).fit()
     resid = pd.Series(stl.resid, index=series.index)
@@ -172,7 +182,7 @@ def run_stl(series: pd.Series, config: Config, plot: bool = False) -> tuple[pd.S
     sigma = resid.std(ddof=1) or 1.0
     z_scores = (resid - mu) / sigma
     anomalies = z_scores.abs() > config.stl.z_threshold
-    
+
     if plot:
         fig, ax = plt.subplots(figsize=(10, 5))
         ax.plot(
@@ -194,11 +204,11 @@ def run_stl(series: pd.Series, config: Config, plot: bool = False) -> tuple[pd.S
         ax.set_ylabel("Value")
         ax.legend(loc="best")
         ax.grid(True, alpha=0.3)
-    
+
         fig.tight_layout()
         save_plot(fig, config.stl.output_plot, dpi=300)
         plt.close(fig)
-    
+
     logger.info(f" STL anomalies saved -> {config.stl.output_plot}")
     logger.info(f"  Anomalies detected: {int(anomalies.sum())}")
     return resid, int(anomalies.sum())
@@ -206,7 +216,7 @@ def run_stl(series: pd.Series, config: Config, plot: bool = False) -> tuple[pd.S
 
 class ResidualAutoencoder(nn.Module):
     """Residual autoencoder for anomaly detection."""
-    
+
     def __init__(self, input_dim: int):
         super().__init__()
         self.encoder = nn.Sequential(
@@ -223,7 +233,7 @@ class ResidualAutoencoder(nn.Module):
             nn.ReLU(),
             nn.Linear(64, input_dim),
         )
-    
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.decoder(self.encoder(x))
 
@@ -243,15 +253,15 @@ def train_autoencoder(
     mu = residuals.mean()
     sigma = residuals.std(ddof=1) or 1.0
     zres = (residuals - mu) / sigma
-    
+
     windows = build_windows(zres.values.astype(np.float32), config.autoencoder.window)
     if windows.size == 0:
         raise ValueError("Time series too short for configured autoencoder window.")
-    
+
     n = len(windows)
     lo, hi = int(0.1 * n), int(0.9 * n)
     train_windows = windows[lo:hi]
-    
+
     device = torch.device("cpu")
     model = ResidualAutoencoder(input_dim=train_windows.shape[1]).to(device)
     optimizer = torch.optim.Adam(
@@ -262,7 +272,7 @@ def train_autoencoder(
     loader = torch.utils.data.DataLoader(
         dataset, batch_size=config.autoencoder.batch_size, shuffle=True
     )
-    
+
     model.train()
     for _ in range(config.autoencoder.epochs):
         for (batch,) in loader:
@@ -272,7 +282,7 @@ def train_autoencoder(
             loss = criterion(recon, batch.float())
             loss.backward()
             optimizer.step()
-    
+
     model.eval()
     with torch.no_grad():
         all_windows = torch.from_numpy(windows).float().to(device)
@@ -280,12 +290,12 @@ def train_autoencoder(
     errors = np.mean((recon - windows) ** 2, axis=1)
     error_index = residuals.index[config.autoencoder.window - 1 :]
     error_series = pd.Series(errors, index=error_index)
-    
+
     err_mu = error_series.mean()
     err_sigma = error_series.std(ddof=1) or 1.0
     z_scores = (error_series - err_mu) / err_sigma
     anomalies = z_scores > config.autoencoder.z_threshold
-    
+
     # Plot residual anomalies
     if plot:
         fig, ax = plt.subplots(figsize=(10, 5))
@@ -308,12 +318,12 @@ def train_autoencoder(
         ax.set_ylabel("Residual Value")
         ax.legend(loc="best")
         ax.grid(True, alpha=0.3)
-    
+
         fig.tight_layout()
         save_plot(fig, config.autoencoder.output_plot, dpi=300)
         plt.close(fig)
-    
-    # Plot reconstruction error
+
+        # Plot reconstruction error
         fig, ax = plt.subplots(figsize=(10, 3))
         ax.plot(
             error_series.index,
@@ -334,15 +344,17 @@ def train_autoencoder(
         ax.set_ylabel("Error")
         ax.legend(loc="best")
         ax.grid(True, alpha=0.3)
-    
+
         fig.tight_layout()
         save_plot(fig, config.autoencoder.error_plot, dpi=300)
         plt.close(fig)
-    
+
     logger.info(f" Autoencoder anomalies saved -> {config.autoencoder.output_plot}")
-    logger.error(f" Error diagnostics saved -> {config.autoencoder.error_plot}", exc_info=True)
+    logger.error(
+        f" Error diagnostics saved -> {config.autoencoder.error_plot}", exc_info=True
+    )
     logger.info(f"  AE anomalies detected: {int(anomalies.sum())}")
-    
+
     return error_series, z_scores, anomalies
 
 
@@ -351,17 +363,23 @@ def run_stumpy(series: pd.Series, config: Config, plot: bool = False) -> None:
     if not config.stumpy.enabled:
         return
     if stumpy is None:
-        logger.warning("Warning: stumpy not available. Skipping STUMPY anomaly detection.")
+        logger.warning(
+            "Warning: stumpy not available. Skipping STUMPY anomaly detection."
+        )
         return
-    
+
     matrix_profile = stumpy.stump(series.values, m=config.stumpy.window)[:, 0]
     threshold = np.percentile(matrix_profile, config.stumpy.percentile)
     anomalies = matrix_profile > threshold
-    
+
     if plot:
         fig, axes = plt.subplots(2, 1, figsize=(12, 6), sharex=True)
         axes[0].plot(
-            series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8
+            series.index,
+            series.values,
+            label="Series",
+            color=config.colors["series"],
+            alpha=0.8,
         )
         axes[0].scatter(
             series.index[anomalies],
@@ -374,18 +392,26 @@ def run_stumpy(series: pd.Series, config: Config, plot: bool = False) -> None:
         axes[0].set_title("STUMPY matrix profile anomalies")
         axes[0].set_ylabel("Value")
         axes[0].grid(True, alpha=0.3)
-    
+
         axes[1].plot(
-            series.index[: len(matrix_profile)], matrix_profile, label="Matrix profile", color="tab:blue", alpha=0.8
+            series.index[: len(matrix_profile)],
+            matrix_profile,
+            label="Matrix profile",
+            color="tab:blue",
+            alpha=0.8,
         )
         axes[1].axhline(
-            threshold, color=config.colors["anomaly"], linestyle="--", label="Threshold", lw=2
+            threshold,
+            color=config.colors["anomaly"],
+            linestyle="--",
+            label="Threshold",
+            lw=2,
         )
         axes[1].legend(loc="best")
         axes[1].set_xlabel("Date")
         axes[1].set_ylabel("Matrix Profile")
         axes[1].grid(True, alpha=0.3)
-    
+
         fig.tight_layout()
         path = config.output_dir / "stumpy_matrix_profile.png"
         save_plot(fig, path, dpi=300)
@@ -400,7 +426,7 @@ def run_pyod(series: pd.Series, config: Config, plot: bool = False) -> None:
     if IForest is None or LOF is None or OCSVM is None:
         logger.warning("Warning: PyOD not available. Skipping PyOD anomaly detection.")
         return
-    
+
     method_map = {
         "IForest": IForest(contamination=config.pyod.contamination, random_state=42),
         "LOF": LOF(contamination=config.pyod.contamination),
@@ -409,10 +435,16 @@ def run_pyod(series: pd.Series, config: Config, plot: bool = False) -> None:
     model = method_map.get(config.pyod.method, list(method_map.values())[0])
     model.fit(series.values.reshape(-1, 1))
     preds = model.predict(series.values.reshape(-1, 1)) == 1
-    
+
     if plot:
         fig, ax = plt.subplots(figsize=(10, 4))
-        ax.plot(series.index, series.values, label="Series", color=config.colors["series"], alpha=0.8)
+        ax.plot(
+            series.index,
+            series.values,
+            label="Series",
+            color=config.colors["series"],
+            alpha=0.8,
+        )
         ax.scatter(
             series.index[preds],
             series.values[preds],
@@ -425,7 +457,7 @@ def run_pyod(series: pd.Series, config: Config, plot: bool = False) -> None:
         ax.set_xlabel("Date")
         ax.set_ylabel("Value")
         ax.grid(True, alpha=0.3)
-    
+
         fig.tight_layout()
         path = config.output_dir / f"pyod_{config.pyod.method.lower()}_anomalies.png"
         save_plot(fig, path, dpi=300)
