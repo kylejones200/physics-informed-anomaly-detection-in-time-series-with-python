@@ -36,10 +36,10 @@ try:
     from pyod.models.lof import LOF
     from pyod.models.ocsvm import OCSVM
 except ImportError:  # pragma: no cover - optional dependencies
-    stumpy = None  # type: ignore
-    IForest = None  # type: ignore
-    LOF = None  # type: ignore
-    OCSVM = None  # type: ignore
+    stumpy = None
+    IForest = None
+    LOF = None
+    OCSVM = None
 
 
 @dataclass
@@ -234,7 +234,7 @@ def build_windows(arr: np.ndarray, window: int) -> np.ndarray:
 
 
 def train_autoencoder(
-    residuals: pd.Series, config: Config
+    residuals: pd.Series, config: Config, plot: bool = False
 ) -> tuple[pd.Series, pd.Series, pd.Series]:
     """Train autoencoder and detect anomalies."""
     residuals = residuals.dropna()
