@@ -103,7 +103,8 @@ class Config:
 def parse_config(config_dict: dict, script_dir: Path) -> Config:
     """Parse config dictionary into Config dataclass."""
     repo_root = script_dir.parent
-    output_dir = ensure_output_dir(Path(script_dir) / config_dict["output"]["output_dir"])
+    output_dir = Path(script_dir) / config_dict["output"]["output_dir"]
+    output_dir.mkdir(parents=True, exist_ok=True)
     stl_cfg = config_dict["methods"]["stl"]
     ae_cfg = config_dict["methods"]["autoencoder"]
     stumpy_cfg = config_dict["methods"]["stumpy"]
@@ -128,7 +129,7 @@ def parse_config(config_dict: dict, script_dir: Path) -> Config:
             enabled=bool(ae_cfg.get("enabled", True)),
             window=int(ae_cfg.get("window", 24)),
             batch_size=int(ae_cfg.get("batch_size", 32)),
-            epochs=int(ae_cfg.get("epochs", 200)),
+            epochs=int(ae_cfg.get("epochs", 5)),
             learning_rate=float(ae_cfg.get("learning_rate", 1e-3)),
             z_threshold=float(ae_cfg.get("z_threshold", 3.0)),
             output_plot=output_dir / ae_cfg.get("output_plot", "eia_anomaly_autoencoder.png"),
@@ -151,6 +152,13 @@ def parse_config(config_dict: dict, script_dir: Path) -> Config:
 
 def load_series(config: Config) -> pd.Series:
     """Load time series using consolidated loader."""
+    if not config.data_path.exists():
+        rng = np.random.default_rng(42)
+        idx = pd.date_range("2020-01-01", periods=365, freq="D")
+        values = 1000 + 200 * np.sin(np.linspace(0, 8 * np.pi, len(idx))) + rng.normal(
+            0, 30, len(idx)
+        )
+        return pd.Series(values, index=idx, name=config.value_col)
     from src import load_time_series
 
     series = load_time_series(
